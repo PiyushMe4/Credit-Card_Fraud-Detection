@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Safeguard | Multi-Engine Defense Center</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
             --bg: #0d0d10;
@@ -219,17 +220,101 @@
 
                 <button type="submit" class="btn-submit">RUN SELECTED ENGINE</button>
             </form>
+
+            <!-- Initial Data for JS (Prevents Lint Reds) -->
+            <script id="initial-radar-data" type="application/json">
+                {
+                    "amount": {{ form_data['Amount'] or 100 }},
+                    "v10": {{ form_data['V10'] or 0 }},
+                    "v4": {{ form_data['V4'] or 0 }},
+                    "v14": {{ form_data['V14'] or 0 }},
+                    "v11": {{ form_data['V11'] or 0 }}
+                }
+            </script>
+
+            <!-- Real-time Defense Radar Visualization -->
+            <div style="margin-top: 50px; text-align: center;">
+                <h3 style="font-size: 0.85rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 20px;">Defense Profile Radar</h3>
+                <div style="height: 320px; width: 100%; display: flex; justify-content: center;">
+                    <canvas id="defenseRadar"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
+        const initialData = JSON.parse(document.getElementById('initial-radar-data').textContent);
+        const ctx = document.getElementById('defenseRadar').getContext('2d');
+        
+        let radarChart = new Chart(ctx, {
+            type: 'radar',
+            data: {
+                labels: ['Spending', 'Location', 'Frequency', 'History', 'Hardware'],
+                datasets: [{
+                    label: 'Profile Variance',
+                    data: [
+                        initialData.amount / 500,
+                        initialData.v10,
+                        initialData.v4,
+                        initialData.v14,
+                        initialData.v11
+                    ],
+                    backgroundColor: 'rgba(0, 242, 254, 0.15)',
+                    borderColor: '#00f2fe',
+                    borderWidth: 2,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#00f2fe',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: '#00f2fe'
+                }]
+            },
+            options: {
+                scales: {
+                    r: {
+                        angleLines: { color: 'rgba(255, 255, 255, 0.05)' },
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        pointLabels: { color: '#94a3b8', font: { family: 'Outfit', size: 10 } },
+                        ticks: { display: false },
+                        suggestedMin: -10,
+                        suggestedMax: 10
+                    }
+                },
+                plugins: { legend: { display: false } },
+                maintainAspectRatio: false
+            }
+        });
+
         function refreshLabel(id, val, base) {
             let label = document.getElementById(id + '-val');
             let text = base + ' (' + val + ')';
             if (val > 5 || val < -5) text = 'Extreme Variance (' + val + ')';
             else if (val > 2 || val < -2) text = 'Drifting Habitat (' + val + ')';
             label.innerText = text;
+            
+            // Map inputs to radar chart
+            if (id === 'v10') radarChart.data.datasets[0].data[1] = val;
+            if (id === 'v4') radarChart.data.datasets[0].data[2] = val;
+            if (id === 'v14') radarChart.data.datasets[0].data[3] = val;
+            if (id === 'v11') radarChart.data.datasets[0].data[4] = val;
+            
+            // Update chart colors based on risk
+            const variance = radarChart.data.datasets[0].data.reduce((a, b) => Math.abs(a) + Math.abs(b), 0);
+            if (variance > 15) {
+                radarChart.data.datasets[0].borderColor = '#ff4b2b';
+                radarChart.data.datasets[0].backgroundColor = 'rgba(255, 75, 43, 0.15)';
+            } else {
+                radarChart.data.datasets[0].borderColor = '#00f2fe';
+                radarChart.data.datasets[0].backgroundColor = 'rgba(0, 242, 254, 0.15)';
+            }
+            
+            radarChart.update();
         }
+
+        // Special handling for Amount slider
+        document.getElementById('Amount').addEventListener('input', function() {
+            radarChart.data.datasets[0].data[0] = this.value / 500; // Normalized for radar
+            radarChart.update();
+        });
 
         function applyPreset(amt, v10, v4, v14, v11, v12, v17, v3, v7, v16, v2) {
             document.getElementById('Amount').value = amt;
@@ -250,6 +335,10 @@
             document.querySelector('.btn-submit').style.background = 'linear-gradient(135deg, #00f2fe 0%, #005f73 100%)';
             document.querySelector('.btn-submit').style.color = '#fff';
             document.querySelector('.btn-submit').innerText = 'SCAN MASTER PROFILE';
+
+            // Sync radar chart
+            radarChart.data.datasets[0].data = [amt/500, v10, v4, v14, v11];
+            radarChart.update();
         }
     </script>
 </body>
